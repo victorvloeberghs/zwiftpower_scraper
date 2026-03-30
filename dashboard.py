@@ -241,22 +241,22 @@ with tabs[0]:
 
     filtered_ov = filtered[filtered["pace_group"].isin(ov_cats)].copy()
 
-    # Build display columns for each stage
+    # Always compute raw values from the original numeric data, then build disp
     show_cols = ["rider_id", "rider_name", "pace_group", "profile"] + present_races
     disp = filtered_ov[show_cols].copy()
 
     for stage_idx, rn in enumerate(present_races):
         stages_so_far = present_races[: stage_idx + 1]
 
-        # Compute the raw serial time for this column (stage or cumulative)
+        # Read raw serial times from filtered_ov (never from disp, which gets overwritten)
         if ov_cumulative:
-            raw = disp.apply(lambda r: cumulative_time(r, stages_so_far), axis=1)
+            raw = filtered_ov.apply(lambda r: cumulative_time(r, stages_so_far), axis=1)
         else:
-            raw = disp[rn].apply(lambda v: _to_serial(v) if is_numeric_time(v) else float("nan"))
+            raw = filtered_ov[rn].apply(lambda v: _to_serial(v) if is_numeric_time(v) else float("nan"))
 
         # Apply gap or time formatting
         if ov_gap:
-            leader = raw.min()  # NaN-safe: min() ignores NaN
+            leader = raw.min()
             disp[rn] = (raw - leader).apply(lambda v: fmt_gap(v) if not pd.isna(v) else "DNS")
         else:
             disp[rn] = raw.apply(fmt_time)

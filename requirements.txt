@@ -1,0 +1,7 @@
+playwright
+pandas
+xlsxwriter
+openpyxl
+rich
+streamlit
+python-dotenv

@@ -1,4 +1,6 @@
+playwright
 pandas
+xlsxwriter
 openpyxl
-streamlit
+rich
 python-dotenv

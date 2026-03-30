@@ -230,22 +230,46 @@ tabs       = st.tabs(tab_labels)
 with tabs[0]:
     st.subheader("All Riders")
 
-    ov_cats  = st.multiselect("Category", pace_options, default=pace_options, key="cat_overview")
-    filtered_ov = filtered[filtered["pace_group"].isin(ov_cats)]
+    # Controls row: category filter + two toggles
+    ov_col1, ov_col2, ov_col3 = st.columns([2, 1, 1])
+    with ov_col1:
+        ov_cats = st.multiselect("Category", pace_options, default=pace_options, key="cat_overview")
+    with ov_col2:
+        ov_cumulative = st.toggle("Cumulative time", key="ov_cum")
+    with ov_col3:
+        ov_gap = st.toggle("Gap to leader", key="ov_gap")
 
+    filtered_ov = filtered[filtered["pace_group"].isin(ov_cats)].copy()
+
+    # Build display columns for each stage
+    show_cols = ["rider_id", "rider_name", "pace_group", "profile"] + present_races
+    disp = filtered_ov[show_cols].copy()
+
+    for stage_idx, rn in enumerate(present_races):
+        stages_so_far = present_races[: stage_idx + 1]
+
+        # Compute the raw serial time for this column (stage or cumulative)
+        if ov_cumulative:
+            raw = disp.apply(lambda r: cumulative_time(r, stages_so_far), axis=1)
+        else:
+            raw = disp[rn].apply(lambda v: _to_serial(v) if is_numeric_time(v) else float("nan"))
+
+        # Apply gap or time formatting
+        if ov_gap:
+            leader = raw.min()  # NaN-safe: min() ignores NaN
+            disp[rn] = (raw - leader).apply(lambda v: fmt_gap(v) if not pd.isna(v) else "DNS")
+        else:
+            disp[rn] = raw.apply(fmt_time)
+
+    col_label_suffix = " (Gap)" if ov_gap else (" (Cum)" if ov_cumulative else "")
     col_cfg = {
         "rider_id":   st.column_config.NumberColumn("ID",      width="small"),
         "rider_name": st.column_config.TextColumn(  "Name",    width="medium"),
         "pace_group": st.column_config.TextColumn(  "Cat",     width="small"),
         "profile":    st.column_config.LinkColumn(  "Profile", display_text="View", width="small"),
+        **{rn: st.column_config.TextColumn(SHORT_LABELS.get(rn, rn) + col_label_suffix, width="medium")
+           for rn in present_races},
     }
-    for rn in present_races:
-        col_cfg[rn] = st.column_config.TextColumn(SHORT_LABELS.get(rn, rn), width="medium")
-
-    show_cols = ["rider_id", "rider_name", "pace_group", "profile"] + present_races
-    disp = filtered_ov[show_cols].copy()
-    for rn in present_races:
-        disp[rn] = disp[rn].apply(fmt_time)
 
     st.dataframe(
         disp.style.applymap(highlight_dns, subset=present_races),
